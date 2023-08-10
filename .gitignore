@@ -178,3 +178,8 @@ flagged/*
 ptuning-v2/*.json
 ptuning-v2/*.bin
 
+#Local data
+data/**
+data_*/**
+test.py
+

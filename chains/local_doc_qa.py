@@ -1,6 +1,6 @@
 from langchain.embeddings.huggingface import HuggingFaceEmbeddings
 from vectorstores import MyFAISS
-from langchain.document_loaders import UnstructuredFileLoader, TextLoader, CSVLoader
+from langchain.document_loaders import UnstructuredFileLoader, TextLoader, CSVLoader, Docx2txtLoader
 from configs.model_config import *
 import datetime
 from textsplitter import ChineseTextSplitter
@@ -8,6 +8,7 @@ from typing import List
 from utils import torch_gc
 from tqdm import tqdm
 from pypinyin import lazy_pinyin
+from loader import UnstructuredPaddleImageLoader, UnstructuredPaddlePDFLoader
 from models.base import (BaseAnswer,
                          AnswerResult)
 from models.loader.args import parser
@@ -58,29 +59,30 @@ def tree(filepath, ignore_dir_names=None, ignore_file_names=None):
 
 
 def load_file(filepath, sentence_size=SENTENCE_SIZE, using_zh_title_enhance=ZH_TITLE_ENHANCE):
-
     if filepath.lower().endswith(".md"):
         loader = UnstructuredFileLoader(filepath, mode="elements")
-        docs = loader.load()
+        textsplitter = ChineseTextSplitter(pdf=False, sentence_size=sentence_size)
+        docs = loader.load_and_split(text_splitter=textsplitter)
+        #docs = loader.load()
     elif filepath.lower().endswith(".txt"):
         loader = TextLoader(filepath, autodetect_encoding=True)
         textsplitter = ChineseTextSplitter(pdf=False, sentence_size=sentence_size)
         docs = loader.load_and_split(textsplitter)
     elif filepath.lower().endswith(".pdf"):
-        # 暂且将paddle相关的loader改为动态加载，可以在不上传pdf/image知识文件的前提下使用protobuf=4.x
-        from loader import UnstructuredPaddlePDFLoader
         loader = UnstructuredPaddlePDFLoader(filepath)
         textsplitter = ChineseTextSplitter(pdf=True, sentence_size=sentence_size)
         docs = loader.load_and_split(textsplitter)
     elif filepath.lower().endswith(".jpg") or filepath.lower().endswith(".png"):
-        # 暂且将paddle相关的loader改为动态加载，可以在不上传pdf/image知识文件的前提下使用protobuf=4.x
-        from loader import UnstructuredPaddleImageLoader
         loader = UnstructuredPaddleImageLoader(filepath, mode="elements")
         textsplitter = ChineseTextSplitter(pdf=False, sentence_size=sentence_size)
         docs = loader.load_and_split(text_splitter=textsplitter)
     elif filepath.lower().endswith(".csv"):
         loader = CSVLoader(filepath)
         docs = loader.load()
+    elif filepath.lower().endswith(".docx") or filepath.lower().endswith(".doc"):   # 单独读取 docx 类型文件，保留换行符。yunze 2023-07-10
+        loader = Docx2txtLoader(filepath)
+        textsplitter = ChineseTextSplitter(pdf=False, sentence_size=sentence_size)
+        docs = loader.load_and_split(text_splitter=textsplitter)
     else:
         loader = UnstructuredFileLoader(filepath, mode="elements")
         textsplitter = ChineseTextSplitter(pdf=False, sentence_size=sentence_size)
@@ -96,7 +98,8 @@ def write_check_file(filepath, docs):
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
     fp = os.path.join(folder_path, 'load_file.txt')
-    with open(fp, 'a+', encoding='utf-8') as fout:
+    # with open(fp, 'a+', encoding='utf-8') as fout:
+    with open(fp, 'w', encoding='utf-8') as fout:
         fout.write("filepath=%s,len=%s" % (filepath, len(docs)))
         fout.write('\n')
         for i in docs:
@@ -109,7 +112,13 @@ def generate_prompt(related_docs: List[str],
                     query: str,
                     prompt_template: str = PROMPT_TEMPLATE, ) -> str:
     context = "\n".join([doc.page_content for doc in related_docs])
-    prompt = prompt_template.replace("{question}", query).replace("{context}", context)
+    prompt = prompt_template.replace("{question}", query).replace("{context}", context.replace('\n',''))
+    return prompt
+
+
+def generate_autoprompt(doc_page_content: str,
+                    prompt_template: str = AUTOPROMPT_TEMPLATE, ) -> str:
+    prompt = prompt_template.replace("{context}", doc_page_content.replace('\n',''))
     return prompt
 
 
@@ -228,21 +237,88 @@ class LocalDocQA:
         except Exception as e:
             logger.error(e)
             return None, [one_title]
+    
+    #Luming added 20230630
+    def load_selected_file_knowledge(self, doc_list):
+        docs = []
+        for file in doc_list:
+            docs += load_file(file)
+        partial_vector = MyFAISS.from_documents(docs, self.embeddings)  ##docs 为Document列表
+        return partial_vector
+    
+    #Luming added 20230712
+    def get_keywords_from_autoprompt():
+        keywords = []
 
-    def get_knowledge_based_answer(self, query, vs_path, chat_history=[], streaming: bool = STREAMING):
+        return keywords
+
+    # 在指定文档中搜索
+    def similarity_search_within_docx_files(self, vector_store, query, loaded_files):
+        #print("OUTPUT match_doc_name: ", match_doc_names)
+        if(USE_HIERARCHY_FAISS):
+            match_doc_names = vector_store.compare_similarity_query_doc(query, loaded_files, doc_name_mode=True)
+            if(len(match_doc_names)>0):
+                partial_vectorstore = self.load_selected_file_knowledge(match_doc_names) #inputs=[select_vs, files, sentence_size, chatbot, vs_add, vs_add]
+                related_docs_with_score, len_context = partial_vectorstore.similarity_search_with_score(query, k=self.top_k, match_docs=match_doc_names,)
+                print("OUTPUT len_context1:", len_context)
+                if(len_context < self.chunk_size*self.top_k): # Cannot get sufficient information from local knowledge. # 放宽限制，移除长度限制 *self.top_k 用以扩大文档内搜索结果的适用范围。 yunze 2023-07-10
+                    print("IN regenerate answer, hierarchy faiss")
+                    related_docs_with_score, len_context = partial_vectorstore.similarity_search_with_score(query, k=self.top_k, match_docs=match_doc_names)
+                    print("OUTPUT len_context2:", len_context)
+            else:
+                print("IN regenerate answer, hierarchy faiss, no match files")
+                related_docs_with_score, _ = vector_store.similarity_search_with_score(query, k=self.top_k, match_docs = [])
+        else:
+            print("IN regenerate answer")
+            related_docs_with_score, _ = vector_store.similarity_search_with_score(query, k=self.top_k, match_docs = [])
+        return related_docs_with_score
+    
+    def generate_intent_keywords(self, query_autoprompt):
+        answer_result = self.llm.generatorAnswer(prompt=query_autoprompt, streaming=False)
+        resp = next(answer_result).llm_output["answer"]
+        resp = resp.replace("意图：","").replace("关键词：","").replace("\n","").replace  ("，"," ")
+        print("OUTPUT intent keywords:", resp)
+        return resp
+
+
+    def get_knowledge_based_answer(self, query, vs_path, loaded_files=[], chat_history=[], streaming: bool = STREAMING):
         vector_store = load_vector_store(vs_path, self.embeddings)
         vector_store.chunk_size = self.chunk_size
         vector_store.chunk_conent = self.chunk_conent
         vector_store.score_threshold = self.score_threshold
-        related_docs_with_score = vector_store.similarity_search_with_score(query, k=self.top_k)
+        #Luming modified 20230630
+        #print("DEBUG, ", query, loaded_files)
+        if not len(loaded_files):
+            for d in os.listdir(DOC_PATH):
+              if os.path.isfile(DOC_PATH+'/'+d):
+                   loaded_files.append(DOC_PATH+'/'+d)
+            print("DEBUG, ", loaded_files)
+
+        # if AUTO_PROMPT: # Call Autoprompt
+        #     doc_page_contents = vector_store.similarity_search_in_doc_for_autoprompt(query, k=self.top_k)
+        #     print("OUTPUT doc_page_contents:", doc_page_contents)
+        #     for page_content in doc_page_contents:
+        #         query_autoprompt = generate_autoprompt(page_content)
+        #         intent_keywords = self.generate_intent_keywords(query_autoprompt)
+        #         print("OUTPUT intent_keywords:", intent_keywords)
+
+        #if loaded_files[0].endswith(".docx"):
+        if len(loaded_files):
+            related_docs_with_score = self.similarity_search_within_docx_files(vector_store, query, loaded_files)
+        else:
+            related_docs_with_score, _ = vector_store.similarity_search_with_score(query, k=self.top_k, match_docs = [])
+        
+        #print("OUTPUT related_docs_with_score:", related_docs_with_score, len_context)
         torch_gc()
         if len(related_docs_with_score) > 0:
             prompt = generate_prompt(related_docs_with_score, query)
         else:
             prompt = query
+        # for answer_result in self.llm.generatorAnswer(prompt=prompt, history=chat_history,
+                                                    #   streaming=streaming):
 
         answer_result_stream_result = self.llm_model_chain(
-            {"prompt": prompt, "history": chat_history, "streaming": streaming})
+                {"prompt": prompt, "history": chat_history, "streaming": streaming})
 
         for answer_result in answer_result_stream_result['answer_result_stream']:
             resp = answer_result.llm_output["answer"]
@@ -251,6 +327,8 @@ class LocalDocQA:
             response = {"query": query,
                         "result": resp,
                         "source_documents": related_docs_with_score}
+            #print("OUTPUT response:", response)
+            #print("OUTPUT history:", history)
             yield response, history
 
     # query      查询内容
@@ -349,5 +427,5 @@ if __name__ == "__main__":
                    # f"""相关度：{doc.metadata['score']}\n\n"""
                    for inum, doc in
                    enumerate(resp["source_documents"])]
-    logger.info("\n\n" + "\n\n".join(source_text))
+    logger.info("\n" + "\n".join(source_text))
     pass

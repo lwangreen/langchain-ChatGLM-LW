@@ -43,7 +43,7 @@ class UnstructuredPaddlePDFLoader(UnstructuredFileLoader):
                 os.remove(img_name)
             return txt_file_path
 
-        txt_file_path = pdf_ocr_txt(self.file_path)
+        txt_file_path= pdf_ocr_txt(self.file_path)
         from unstructured.partition.text import partition_text
         return partition_text(filename=txt_file_path, **self.unstructured_kwargs)
 

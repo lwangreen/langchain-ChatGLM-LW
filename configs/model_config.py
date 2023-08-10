@@ -34,7 +34,7 @@ EMBEDDING_DEVICE = "cuda" if torch.cuda.is_available() else "mps" if torch.backe
 # llm_model_dict 处理了loader的一些预设行为，如加载位置，模型名称，模型处理器实例
 # 在以下字典中修改属性值，以指定本地 LLM 模型存储位置
 # 如将 "chatglm-6b" 的 "local_model_path" 由 None 修改为 "User/Downloads/chatglm-6b"
-# 此处请写绝对路径,且路径中必须包含repo-id的模型名称，因为FastChat是以模型名匹配的
+# 此处请写绝对路径
 llm_model_dict = {
     "chatglm-6b-int4-qe": {
         "name": "chatglm-6b-int4-qe",
@@ -228,7 +228,7 @@ llm_model_dict = {
 }
 
 # LLM 名称
-LLM_MODEL = "chatglm2-6b-32k"
+LLM_MODEL = "chatglm2-6b"
 # 量化加载8bit 模型
 LOAD_IN_8BIT = False
 # Load the model with bfloat16 precision. Requires NVIDIA Ampere GPU.
@@ -236,8 +236,7 @@ BF16 = False
 # 本地lora存放的位置
 LORA_DIR = "loras/"
 
-# LORA的名称，如有请指定为列表
-
+# LLM lora path，默认为空，如果有请直接指定文件夹路径
 LORA_NAME = ""
 USE_LORA = True if LORA_NAME else False
 
@@ -256,14 +255,18 @@ KB_ROOT_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "knowled
 # 基于上下文的prompt模版，请务必保留"{question}"和"{context}"
 PROMPT_TEMPLATE = """已知信息：
 {context} 
+根据上述已知信息，详细和专业的来回答用户的问题。如果无法从中得到答案，请说 “无法回答该问题” 或 “没有提供足够的相关信息”，不允许在答案中添加编造成分，答案请使用中文。 问题是：{question}"""
+# 根据上述已知信息，详细和专业的来回答用户的问题。如果无法从中得到答案，请说 “根据已知信息无法回答该问题” 或 “没有提供足够的相关信息”，不允许在答案中添加编造成分，答案请使用中文。 问题是：{question}"""
+#根据上述已知信息，简洁和专业的来回答用户的问题。如果无法从中得到答案，请说 “根据已知信息无法回答该问题” 或 “没有提供足够的相关信息”，不允许在答案中添加编造成分，答案请使用中文。 问题是：{question}"""
 
-根据上述已知信息，简洁和专业的来回答用户的问题。如果无法从中得到答案，请说 “根据已知信息无法回答该问题” 或 “没有提供足够的相关信息”，不允许在答案中添加编造成分，答案请使用中文。 问题是：{question}"""
+#Luming added 20230712
+AUTOPROMPT_TEMPLATE = """请总结出以下句子的意图和关键词，严格的以意图，关键词的格式输出。句子是：{context} """
 
 # 缓存知识库数量,如果是ChatGLM2,ChatGLM2-int4,ChatGLM2-int8模型若检索效果不好可以调成’10’
 CACHED_VS_NUM = 1
 
 # 文本分句长度
-SENTENCE_SIZE = 100
+SENTENCE_SIZE = 500
 
 # 匹配后单段上下文长度
 CHUNK_SIZE = 250
@@ -275,7 +278,7 @@ LLM_HISTORY_LEN = 3
 VECTOR_SEARCH_TOP_K = 5
 
 # 知识检索内容相关度 Score, 数值范围约为0-1100，如果为0，则不生效，建议设置为500左右，经测试设置为小于500时，匹配结果更精准
-VECTOR_SEARCH_SCORE_THRESHOLD = 500
+VECTOR_SEARCH_SCORE_THRESHOLD = 0
 
 NLTK_DATA_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "nltk_data")
 
@@ -310,3 +313,15 @@ BING_SUBSCRIPTION_KEY = ""
 # 通过增加标题判断，判断哪些文本为标题，并在metadata中进行标记；
 # 然后将文本与往上一级的标题进行拼合，实现文本信息的增强。
 ZH_TITLE_ENHANCE = False
+
+AUTO_PROMPT = True
+# 是否使用分级查询
+USE_HIERARCHY_FAISS = True
+
+# 是否使用 QA 数据集
+USE_QA_DATA = False
+
+# 知识库原文默认存储路径
+DOC_PATH= os.path.join(os.path.dirname(os.path.dirname(__file__)), "data/")
+
+KNOWLEDGE_BASE_NAME = "baoanquguanyujiadaqiyerencaizhufanggongyinglidudeshishibanfa（shenbaogui〔2018〕7hao ）_FAISS_20230809_025327"
