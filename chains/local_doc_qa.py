@@ -115,6 +115,12 @@ def generate_prompt(related_docs: List[str],
     prompt = prompt_template.replace("{question}", query).replace("{context}", context.replace('\n',''))
     return prompt
 
+def generate_prompt_with_history(related_docs: List[str],
+                    query: str, history_query: str,
+                    prompt_template: str = PROMPT_TEMPLATE_WITH_HISTORY, ) -> str:
+    context = "\n".join([doc.page_content for doc in related_docs])
+    prompt = prompt_template.replace("{question}", query).replace("{context}", context.replace('\n','')).replace("{history}", history_query)
+    return prompt
 
 def generate_autoprompt(doc_page_content: str,
                     prompt_template: str = AUTOPROMPT_TEMPLATE, ) -> str:
@@ -303,15 +309,40 @@ class LocalDocQA:
         #         print("OUTPUT intent_keywords:", intent_keywords)
 
         #if loaded_files[0].endswith(".docx"):
+
+        # Yunze. 23/08/12.
+        # 多轮对话功能，思路：首先假设单轮对话可行，若阈值低于设定则进入多轮对话模式，即迭代加入先前的问题，直到相似度满足条件或 history 用完
+        # 多轮对话可尝试修改 Prompt，即给出 历史问题 和 本轮问题，至于是否需要纳入历史回答有待考察。
+
+        # 假设单轮对话
         if len(loaded_files):
             related_docs_with_score = self.similarity_search_within_docx_files(vector_store, query, loaded_files)
         else:
             related_docs_with_score, _ = vector_store.similarity_search_with_score(query, k=self.top_k, match_docs = [])
+        # 判断是否进入多轮对话
+        print('history: ', chat_history)
+        history_query = ""
+        if related_docs_with_score[0].metadata['score'] >= MULTI_DIALOGUE_THRESHOLD:
+            print("Multi Diag Mode")
+            for history in chat_history[::-1]: # 依次加入历史
+                history_query = history[0]
+                if len(loaded_files):
+                    related_docs_with_score = self.similarity_search_within_docx_files(vector_store, history_query+' '+query, loaded_files)
+                else:
+                    related_docs_with_score, _ = vector_store.similarity_search_with_score(history_query+' '+query, k=self.top_k, match_docs = [])
+                if related_docs_with_score[0].metadata['score'] < MULTI_DIALOGUE_THRESHOLD:
+                    print("Find suitable history: {}".format(history_query))
+                    break
         
-        #print("OUTPUT related_docs_with_score:", related_docs_with_score, len_context)
+        print("OUTPUT related_docs_with_score:", related_docs_with_score)
         torch_gc()
+
+
         if len(related_docs_with_score) > 0:
-            prompt = generate_prompt(related_docs_with_score, query)
+            if len(history_query):
+                prompt = generate_prompt_with_history(related_docs_with_score, query, history_query)
+            else:
+                prompt = generate_prompt(related_docs_with_score, query)
         else:
             prompt = query
         # for answer_result in self.llm.generatorAnswer(prompt=prompt, history=chat_history,

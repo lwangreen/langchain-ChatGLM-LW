@@ -259,6 +259,12 @@ PROMPT_TEMPLATE = """已知信息：
 # 根据上述已知信息，详细和专业的来回答用户的问题。如果无法从中得到答案，请说 “根据已知信息无法回答该问题” 或 “没有提供足够的相关信息”，不允许在答案中添加编造成分，答案请使用中文。 问题是：{question}"""
 #根据上述已知信息，简洁和专业的来回答用户的问题。如果无法从中得到答案，请说 “根据已知信息无法回答该问题” 或 “没有提供足够的相关信息”，不允许在答案中添加编造成分，答案请使用中文。 问题是：{question}"""
 
+PROMPT_TEMPLATE_WITH_HISTORY = """已知信息：
+{context} 
+历史问题：
+{history}
+根据上述已知信息和历史问题，详细和专业的来回答用户的本次问题。如果无法从中得到答案，请说 “无法回答该问题” 或 “没有提供足够的相关信息”，不允许在答案中添加编造成分，答案请使用中文。 本次问题是：{question}"""
+
 #Luming added 20230712
 AUTOPROMPT_TEMPLATE = """请总结出以下句子的意图和关键词，严格的以意图，关键词的格式输出。句子是：{context} """
 
@@ -279,6 +285,9 @@ VECTOR_SEARCH_TOP_K = 5
 
 # 知识检索内容相关度 Score, 数值范围约为0-1100，如果为0，则不生效，建议设置为500左右，经测试设置为小于500时，匹配结果更精准
 VECTOR_SEARCH_SCORE_THRESHOLD = 0
+
+# 多轮对话阈值，根据知识检索相关度 Score 决定是否需要纳入多轮对话 history query
+MULTI_DIALOGUE_THRESHOLD = 600
 
 NLTK_DATA_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "nltk_data")
 
