@@ -133,7 +133,7 @@ class MyFAISS(FAISS, VectorStore):
             #if selected_headings:
             if min_index_score > scores[0][j]:
                 min_index_score = scores[0][j]
-            elif scores[0][j] - min_index_score > 100: # The following docs are not that related to the query - Luming modified 20230703
+            elif scores[0][j] - min_index_score > MIN_MAX_THRESHOLD: # The following docs are not that related to the query - Luming modified 20230703
                 break
             #if cur_docs_len > self.chunk_size*k:
              #   print("TERMINATED")
@@ -246,7 +246,7 @@ class MyFAISS(FAISS, VectorStore):
                                 # cond = docs_len + len(doc0.page_content) > self.chunk_size*k/2 or '\n' in doc0.page_content\
                                 #    or doc0.metadata["source"] != doc.metadata["source"] or down_index >= store_len
                                 # cond = (docs_len + len(doc0.page_content) > self.chunk_size and '\n' in doc0.page_content)\
-                                cond = '\n' in doc0.page_content\
+                                cond = (docs_len + len(doc0.page_content) > self.chunk_size and '\n' in doc0.page_content) \
                                    or doc0.metadata["source"] != doc.metadata["source"] or down_index >= store_len
                             if (cond):
                                 down_break_flag = True
