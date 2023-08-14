@@ -56,6 +56,12 @@ def main():
     history = []
     while True:
         query = input("Input your question 请输入问题：")
+        # 增加清除历史功能
+        if query == 'clear':
+            history = []
+            continue
+        if query == 'exit':
+            break
         last_print_len = 0
         for resp, history in local_doc_qa.get_knowledge_based_answer(query=query,
                                                                      vs_path=vs_path,
