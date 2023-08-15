@@ -293,7 +293,7 @@ AUTOPROMPT_TEMPLATE = """请总结出以下句子的意图和关键词，严格�
 CACHED_VS_NUM = 1
 
 # 文本分句长度
-SENTENCE_SIZE = 500
+SENTENCE_SIZE = 50
 
 # 匹配后单段上下文长度
 CHUNK_SIZE = 250
@@ -311,7 +311,7 @@ VECTOR_SEARCH_SCORE_THRESHOLD = 0
 MULTI_DIALOGUE_THRESHOLD = 500
 
 # 语料相似度阈值：采纳的语料相似度距离与语料中最小距离之间的最大距离
-MIN_MAX_THRESHOLD = 150
+MIN_MAX_THRESHOLD = 100
 
 NLTK_DATA_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "nltk_data")
 
