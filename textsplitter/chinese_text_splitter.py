@@ -78,6 +78,7 @@ class ChineseTextSplitter(CharacterTextSplitter):
             text = re.sub(r"\n{3,}", r"\n", text)
             text = re.sub('\s', " ", text)
             text = re.sub("\n\n", "", text)
+        text = re.sub(" ", "", text)   # 去除文本中所有的空格，避免'\n'之前的空格造成的损失
         # print("split_text: ", text)
         # 保留原本文本的换行符\n，更换切割分隔符为\t。yunze 2023-07-10
         text = re.sub(r'([;；!?。！？\?])([^”’\n])', r"\1\t\2", text)  # 单字符断句符   # 去除句点分隔符
