@@ -426,7 +426,7 @@ class MyFAISS(FAISS, VectorStore):
         Returns:
             List of Documents most similar to the query and score for each
         """ 
-        if(match_docs): #and match_docs[0].endswith('docx')):
+        if(match_docs and match_docs[0].endswith('docx')):
             headings_from_selected_docs = []
             for f in match_docs:
                 headings_from_selected_docs += self.read_docx_headings(f)

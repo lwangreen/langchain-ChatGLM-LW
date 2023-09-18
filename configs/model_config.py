@@ -16,7 +16,8 @@ embedding_model_dict = {
     "ernie-tiny": "nghuyong/ernie-3.0-nano-zh",
     "ernie-base": "nghuyong/ernie-3.0-base-zh",
     "text2vec-base": "shibing624/text2vec-base-chinese",
-    "text2vec": "GanymedeNil/text2vec-large-chinese",
+    #"text2vec": "GanymedeNil/text2vec-large-chinese",
+    "text2vec": "/root/share/text2vec-large-chinese",
     "text2vec-base-multilingual": "shibing624/text2vec-base-multilingual",
     "text2vec-base-chinese-sentence": "shibing624/text2vec-base-chinese-sentence",
     "text2vec-base-chinese-paraphrase": "shibing624/text2vec-base-chinese-paraphrase",
@@ -72,7 +73,7 @@ llm_model_dict = {
     "chatglm2-6b": {
         "name": "chatglm2-6b",
         "pretrained_model_name": "THUDM/chatglm2-6b",
-        "local_model_path": None,
+        "local_model_path": "/root/share/chatglm2-6b",
         "provides": "ChatGLMLLMChain"
     },
     "chatglm2-6b-32k": {
@@ -349,7 +350,7 @@ ZH_TITLE_ENHANCE = False
 
 AUTO_PROMPT = True
 # 是否使用分级查询
-USE_HIERARCHY_FAISS = True
+USE_HIERARCHY_FAISS = False
 
 # 是否使用 QA 数据集
 USE_QA_DATA = False
