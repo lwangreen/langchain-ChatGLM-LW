@@ -1,3 +1,7 @@
+# Filename: baichuan_llm.py
+# Author: wangtz
+# Created Date: 2023-09-23
+
 from abc import ABC
 from langchain.chains.base import Chain
 from typing import Any, Dict, List, Optional, Generator
@@ -11,15 +15,10 @@ from models.base import (BaseAnswer,
                          AnswerResultQueueSentinelTokenListenerQueue)
 # import torch
 import transformers
+from transformers.generation.utils import GenerationConfig
 
 
-class ChatGLMLLMChain(BaseAnswer, Chain, ABC):
-    max_token: int = 10000
-    temperature: float = 0.01
-    # 相关度
-    top_p = 0.4
-    # 候选词数量
-    top_k = 10
+class BaichuanLLMChain(BaseAnswer, Chain, ABC):
     checkPoint: LoaderCheckPoint = None
     # history = []
     history_len: int = 10
@@ -31,10 +30,23 @@ class ChatGLMLLMChain(BaseAnswer, Chain, ABC):
     def __init__(self, checkPoint: LoaderCheckPoint = None):
         super().__init__()
         self.checkPoint = checkPoint
+        self.checkPoint.model.generation_config = GenerationConfig(
+            pad_token_id=0,
+            bos_token_id=1,
+            eos_token_id=2,
+            user_token_id=195,
+            assistant_token_id=196,
+            max_new_tokens=2048,
+            temperature=0.3,
+            top_k=5,
+            top_p=0.85,
+            repetition_penalty=1.05,
+            do_sample=True,
+        )
 
     @property
     def _chain_type(self) -> str:
-        return "ChatGLMLLMChain"
+        return "BaichuanLLMChain"
 
     @property
     def _check_point(self) -> LoaderCheckPoint:
@@ -71,7 +83,12 @@ class ChatGLMLLMChain(BaseAnswer, Chain, ABC):
         history = inputs[self.history_key]
         streaming = inputs[self.streaming_key]
         prompt = inputs[self.prompt_key]
-        #print(f"__call:{prompt}")
+        messages = []
+        for x in history:
+            messages.append({"role": "user", "content": x[0]})
+            messages.append({"role": "assistant", "content": x[1]})
+        messages.append({"role": "user", "content": prompt})
+        print(f"input: {prompt}")
         # Create the StoppingCriteriaList with the stopping strings
         stopping_criteria_list = transformers.StoppingCriteriaList()
         # 定义模型stopping_criteria 队列，在每次响应时将 torch.LongTensor, torch.FloatTensor同步到AnswerResult
@@ -79,39 +96,31 @@ class ChatGLMLLMChain(BaseAnswer, Chain, ABC):
         stopping_criteria_list.append(listenerQueue)
         if streaming:
             history += [[]]
-            for inum, (stream_resp, _) in enumerate(self.checkPoint.model.stream_chat(
+            # position = 0
+            for resp in self.checkPoint.model.chat(
                     self.checkPoint.tokenizer,
-                    prompt,
-                    history=history[-self.history_len:-1] if self.history_len > 0 else [],
-                    max_length=self.max_token,
-                    temperature=self.temperature,
-                    top_p=self.top_p,
-                    top_k=self.top_k,
-                    stopping_criteria=stopping_criteria_list
-            )):
-                # self.checkPoint.clear_torch_cache()
-                history[-1] = [prompt, stream_resp]
+                    messages,
+                    stream=True
+            ):
+                # print(resp[position:], end='', flush=True)
+                # position = len(resp)
+                history[-1] = [prompt, resp]
                 answer_result = AnswerResult()
                 answer_result.history = history
-                answer_result.llm_output = {"answer": stream_resp}
+                answer_result.llm_output = {"answer": resp}
                 generate_with_callback(answer_result)
             self.checkPoint.clear_torch_cache()
         else:
-            response, _ = self.checkPoint.model.chat(
+            resp = self.checkPoint.model.chat(
                 self.checkPoint.tokenizer,
-                prompt,
-                history=history[-self.history_len:] if self.history_len > 0 else [],
-                max_length=self.max_token,
-                temperature=self.temperature,
-                top_p=self.top_p,
-                top_k=self.top_k,
-                stopping_criteria=stopping_criteria_list
+                messages,
+                streami=False
             )
+            # print(f"resp: {resp}")
             self.checkPoint.clear_torch_cache()
-            history += [[prompt, response]]
+            history += [[prompt, resp]]
             answer_result = AnswerResult()
             answer_result.history = history
-            answer_result.llm_output = {"answer": response}
-
+            answer_result.llm_output = {"answer": resp}
             generate_with_callback(answer_result)
 

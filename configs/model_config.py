@@ -16,7 +16,8 @@ embedding_model_dict = {
     "ernie-tiny": "nghuyong/ernie-3.0-nano-zh",
     "ernie-base": "nghuyong/ernie-3.0-base-zh",
     "text2vec-base": "shibing624/text2vec-base-chinese",
-    "text2vec": "GanymedeNil/text2vec-large-chinese",
+    #"text2vec": "GanymedeNil/text2vec-large-chinese",
+    "text2vec": "/root/share/text2vec-large-chinese",
     "text2vec-base-multilingual": "shibing624/text2vec-base-multilingual",
     "text2vec-base-chinese-sentence": "shibing624/text2vec-base-chinese-sentence",
     "text2vec-base-chinese-paraphrase": "shibing624/text2vec-base-chinese-paraphrase",
@@ -72,13 +73,13 @@ llm_model_dict = {
     "chatglm2-6b": {
         "name": "chatglm2-6b",
         "pretrained_model_name": "THUDM/chatglm2-6b",
-        "local_model_path": None,
+        "local_model_path": "/root/share/chatglm2-6b",
         "provides": "ChatGLMLLMChain"
     },
     "chatglm2-6b-32k": {
         "name": "chatglm2-6b-32k",
         "pretrained_model_name": "THUDM/chatglm2-6b-32k",
-        "local_model_path": None,
+        "local_model_path": "/root/share/chatglm2-6b-32k",
         "provides": "ChatGLMLLMChain"
     },
     # 注：chatglm2-cpp已在mac上测试通过，其他系统暂不支持
@@ -155,6 +156,36 @@ llm_model_dict = {
         "pretrained_model_name": "baichuan-inc/baichuan-7B",
         "local_model_path": None,
         "provides": "MOSSLLMChain"
+    },
+    "baichuan2-7b": {
+        "name": "baichuan2-7b",
+        "pretrained_model_name": "/root/share/Baichuan2-7B-Base",
+        "local_model_path": None,
+        "provides": "BaichuanLLMChain"
+    },
+    "baichuan2-13b": {
+        "name": "baichuan2-13b",
+        "pretrained_model_name": "/root/share/Baichuan2-13B-Base",
+        "local_model_path": None,
+        "provides": "BaichuanLLMChain"
+    },
+    "baichuan2-13b-chat": {
+        "name": "baichuan2-13b-chat",
+        "pretrained_model_name": "/root/share/Baichuan2-13B-Chat",
+        "local_model_path": None,
+        "provides": "BaichuanLLMChain"
+    },
+    "llama2-chinese-13b": {
+        "name": "llama2-chinese-13b",
+        "pretrained_model_name": "/root/share/Llama2-Chinese-13b-Chat",
+        "local_model_path": None,
+        "provides": "LLama2LLMChain"
+    },
+    "chinese-alpaca-2-13b-16k": {
+        "name": "chinese-alpaca-2-13b-16k",
+        "pretrained_model_name": "/root/share/chinese-alpaca-2-13b-16k",
+        "local_model_path": None,
+        "provides": "LLama2LLMChain"
     },
     # llama-cpp模型的兼容性问题参考https://github.com/abetlen/llama-cpp-python/issues/204
     "ggml-vicuna-13b-1.1-q5": {
@@ -349,7 +380,7 @@ ZH_TITLE_ENHANCE = False
 
 AUTO_PROMPT = True
 # 是否使用分级查询
-USE_HIERARCHY_FAISS = True
+USE_HIERARCHY_FAISS = False
 
 # 是否使用 QA 数据集
 USE_QA_DATA = False

@@ -281,12 +281,13 @@ async def local_doc_chat(
         ),
 ):
     # vs_path = get_vs_path(knowledge_base_id)
-    vs_path = "/root/wlm/BERT_GK_Project/langchain-ChatGLM/knowledge_base/"+KNOWLEDGE_BASE_NAME+"/vector_store/"
+    # vs_path = "/root/wlm/BERT_GK_Project/langchain-ChatGLM/knowledge_base/"+KNOWLEDGE_BASE_NAME+"/vector_store/"
     if not os.path.exists(vs_path):
         # return BaseResponse(code=1, msg=f"Knowledge base {knowledge_base_id} not found")
         return ChatMessage(
             question=question,
-            response=f"Knowledge base {knowledge_base_id} not found",
+            # response=f"Knowledge base {knowledge_base_id} not found",
+            response=f"vs_path {vs_path} not found",
             history=history,
             source_documents=[],
         )
@@ -295,6 +296,9 @@ async def local_doc_chat(
                 query=question, vs_path=vs_path, chat_history=history, streaming=True
         ):
             pass
+        # resp, history = local_doc_qa.get_search_result_based_answer(
+        #     query=question, chat_history=history, streaming=False
+        # )
         source_documents = [
             f"""出处 [{inum + 1}] {os.path.split(doc.metadata['source'])[-1]}：\n\n{doc.page_content}\n\n"""
             f"""相关度：{doc.metadata['score']}\n\n"""
@@ -373,7 +377,7 @@ async def stream_chat(websocket: WebSocket, knowledge_base_id: str):
         input_json = await websocket.receive_json()
         question, history, knowledge_base_id = input_json["question"], input_json["history"], input_json[
             "knowledge_base_id"]
-        vs_path = get_vs_path(knowledge_base_id)
+        # vs_path = get_vs_path(knowledge_base_id)
 
         if not os.path.exists(vs_path):
             await websocket.send_json({"error": f"Knowledge base {knowledge_base_id} not found"})
@@ -419,7 +423,7 @@ async def hello():
 
 async def fake_streamer(question: str, history: List[List[str]]):
     # vs_path = os.path.join("./vector_store/", "data")
-    vs_path = "/root/wlm/BERT_GK_Project/langchain-ChatGLM/knowledge_base/"+KNOWLEDGE_BASE_NAME+"/vector_store/"
+    # vs_path = "/root/wlm/BERT_GK_Project/langchain-ChatGLM/knowledge_base/"+KNOWLEDGE_BASE_NAME+"/vector_store/"
     last_print_len = 0
     import configs
     for resp, history in local_doc_qa.get_knowledge_based_answer(
@@ -509,11 +513,12 @@ async def hack(
     # print(history)
     return StreamingResponse(hack_streamer(question, history, type))
 
-def api_start(host, port):
+def api_start(args):
     global app
     global local_doc_qa
+    global vs_path
 
-    llm_model_ins = shared.loaderLLM()
+    llm_model_ins = shared.loaderLLM(llm_model=args.model_name)
     llm_model_ins.history_len = LLM_HISTORY_LEN
 
     app = FastAPI()
@@ -554,15 +559,39 @@ def api_start(host, port):
         embedding_device=EMBEDDING_DEVICE,
         top_k=VECTOR_SEARCH_TOP_K,
     )
-    uvicorn.run(app, host=host, port=port)
+
+    filepath = args.filepath
+    if filepath is not None:
+        vs_path, _ = local_doc_qa.init_knowledge_vector_store(filepath)
+        if vs_path is None:
+            print(f"Error: {filepath} is not a valid file path")
+        else:
+            print(f"Knowledge base loaded from {filepath}")
+    else:
+        vs_path = None
+    while not vs_path:
+        print("注意输入的路径是完整的文件路径，例如knowledge_base/`knowledge_base_id`/content/file.md，多个路径用英文逗号分割")
+        filepath = input("Input your local knowledge file path 请输入本地知识文件路径：")
+        
+        # 判断 filepath 是否为空，如果为空的话，重新让用户输入,防止用户误触回车
+        if not filepath:
+            continue
+        vs_path, _ = local_doc_qa.init_knowledge_vector_store(filepath)
+        if vs_path is not None:
+            print(f"Knowledge base loaded from {filepath}")
+
+    uvicorn.run(app, host=args.host, port=args.port)
 
 
 if __name__ == "__main__":
     parser.add_argument("--host", type=str, default="0.0.0.0")
     parser.add_argument("--port", type=int, default=7861)
+    parser.add_argument("--filepath", type=str, default="data/cleaned_data",
+                        help="path to the local knowledge file")
+    parser.add_argument("--model_name", type=str, default="chatglm2-6b")
     # 初始化消息
     args = None
     args = parser.parse_args()
     args_dict = vars(args)
     shared.loaderCheckPoint = LoaderCheckPoint(args_dict)
-    api_start(args.host, args.port)
+    api_start(args)

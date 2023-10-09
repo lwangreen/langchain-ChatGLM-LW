@@ -266,11 +266,11 @@ class LocalDocQA:
             if(len(match_doc_names)>0):
                 partial_vectorstore = self.load_selected_file_knowledge(match_doc_names) #inputs=[select_vs, files, sentence_size, chatbot, vs_add, vs_add]
                 related_docs_with_score, len_context = partial_vectorstore.similarity_search_with_score(query, k=self.top_k, match_docs=match_doc_names,)
-                print("OUTPUT len_context1:", len_context)
+                #print("OUTPUT len_context1:", len_context)
                 if(len_context < self.chunk_size*self.top_k): # Cannot get sufficient information from local knowledge. # 放宽限制，移除长度限制 *self.top_k 用以扩大文档内搜索结果的适用范围。 yunze 2023-07-10
                     print("IN regenerate answer, hierarchy faiss")
                     related_docs_with_score, len_context = partial_vectorstore.similarity_search_with_score(query, k=self.top_k, match_docs=match_doc_names)
-                    print("OUTPUT len_context2:", len_context)
+                    #print("OUTPUT len_context2:", len_context)
             else:
                 print("IN regenerate answer, hierarchy faiss, no match files")
                 related_docs_with_score, _ = vector_store.similarity_search_with_score(query, k=self.top_k, match_docs = [])
@@ -320,7 +320,7 @@ class LocalDocQA:
         else:
             related_docs_with_score, _ = vector_store.similarity_search_with_score(query, k=self.top_k, match_docs = [])
         # 判断是否进入多轮对话
-        print('history: ', chat_history)
+        #print('history: ', chat_history)
         history_query = ""
         if related_docs_with_score[0].metadata['score'] >= MULTI_DIALOGUE_THRESHOLD:
             print("Multi Diag Mode")
@@ -334,7 +334,7 @@ class LocalDocQA:
                     print("Find suitable history: {}".format(history_query))
                     break
         
-        print("OUTPUT related_docs_with_score:", related_docs_with_score)
+        #print("OUTPUT related_docs_with_score:", related_docs_with_score)
         torch_gc()
 
 
