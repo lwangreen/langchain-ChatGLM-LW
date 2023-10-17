@@ -211,13 +211,17 @@ if __name__ == "__main__":
                         help="the history len of the llm model")
     parser.add_argument("--es_top_k", type=int, default=3,
                         help="the top k of the es search")
+    parser.add_argument("--rerank_type", type=str, default="cross-encoder",
+                        help="the type of the rerank model, support `cross-encoder` and `text2vec`, other values will turn off the rerank")
+    parser.add_argument("--rerank_model", type=str, default="/root/share/cross-encoder-bert-base",
+                        help="the name or path of the rerank model")
     args = parser.parse_args()
     
     vs_path = get_existing_vs_path() if not args.new_vs else get_new_vs_path(args.filepath)
     
     args_dict = vars(args)
     chat_model = ChatModel()
-    kw_list = ["es_url", "top_k", "history_len", "es_top_k"]
+    kw_list = ["es_url", "top_k", "history_len", "es_top_k", "rerank_type", "rerank_model"]
     kwarg_dict = {k: args_dict[k] for k in kw_list}
     chat_model.init_cfg(args_dict=args_dict, **kwarg_dict)
     

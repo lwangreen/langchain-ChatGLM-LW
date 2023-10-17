@@ -96,14 +96,14 @@ class BaichuanLLMChain(BaseAnswer, Chain, ABC):
         stopping_criteria_list.append(listenerQueue)
         if streaming:
             history += [[]]
-            # position = 0
+            position = 0
             for resp in self.checkPoint.model.chat(
                     self.checkPoint.tokenizer,
                     messages,
                     stream=True
             ):
-                # print(resp[position:], end='', flush=True)
-                # position = len(resp)
+                print(resp[position:], end='', flush=True)
+                position = len(resp)
                 history[-1] = [prompt, resp]
                 answer_result = AnswerResult()
                 answer_result.history = history
@@ -114,9 +114,9 @@ class BaichuanLLMChain(BaseAnswer, Chain, ABC):
             resp = self.checkPoint.model.chat(
                 self.checkPoint.tokenizer,
                 messages,
-                streami=False
+                stream=False
             )
-            # print(f"resp: {resp}")
+            print(f"resp: {resp}")
             self.checkPoint.clear_torch_cache()
             history += [[prompt, resp]]
             answer_result = AnswerResult()

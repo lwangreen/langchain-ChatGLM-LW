@@ -143,6 +143,8 @@ class ChatModel:
             history_len = 3,
             args_dict = None,
             loader_llm_args = None,
+            rerank_type: str = "cross-encoder",
+            rerank_model: str = "/root/share/cross-encoder-bert-base",
     ):
         self.embeddings = HuggingFaceEmbeddings(model_name=embedding_model_dict[embedding_model],
                                                 model_kwargs={'device': embedding_device})
@@ -162,6 +164,30 @@ class ChatModel:
         llm_model_ins = shared.loaderLLM(**loader_llm_args if loader_llm_args else {})
         llm_model_ins.history_len = history_len
         self.llm_model_chain: Chain = llm_model_ins
+
+        self.enable_rerank = rerank_type in ["cross-encoder", "text2vec"]
+        self.rerank_type = rerank_type
+        if self.enable_rerank:
+            if self.rerank_type == "cross-encoder":
+                from sentence_transformers.cross_encoder import CrossEncoder
+                self.rerank_model = CrossEncoder(rerank_model)
+            elif self.rerank_type == "text2vec":
+                from text2vec import Similarity
+                self.rerank_model = Similarity(rerank_model)
+            else:
+                raise ValueError("rerank_type must be one of ['cross-encoder', 'text2vec']")
+    
+    def rerank_docs(self,
+                    query: str,
+                    docs: List[Document]):
+        if self.rerank_type == "cross-encoder":
+            scores = [float(self.rerank_model.predict([[query, doc.page_content]][0])) for doc in docs]
+        else:
+            scores = [self.rerank_model.get_score(query, doc.page_content) for doc in docs]
+        for idx in range(len(docs)):
+            docs[idx].metadata['score'] = scores[idx]
+        sorted_docs = [doc for _, doc in sorted(zip(scores, docs), key=lambda pair: pair[0], reverse=True)]
+        return sorted_docs
 
     def init_knowledge_vector_store(self,
                                     filepath: str or List[str],
@@ -262,6 +288,9 @@ class ChatModel:
         related_docs_with_score.extend(related_docs_es)
         print("es search result: ", related_docs_es)
 
+        if self.enable_rerank:
+            related_docs_with_score = self.rerank_docs(query, related_docs_with_score)
+
         history_query = ""
         # if related_docs_with_score[0].metadata['score'] >= MULTI_DIALOGUE_THRESHOLD:
         #     print("Multi Diag Mode")
@@ -280,11 +309,12 @@ class ChatModel:
                 prompt = generate_prompt(related_docs_with_score, query)
         else:
             prompt = query
-
         answer_result_stream_result = self.llm_model_chain({
             "prompt": prompt, "history": chat_history, "streaming": streaming
         })
+        print("answer_result_stream_result: ", answer_result_stream_result)
         for answer_result in answer_result_stream_result["answer_result_stream"]:
+            print("answer_result: ", answer_result)
             resp = answer_result.llm_output["answer"]
             history = answer_result.history
             history[-1][0] = query

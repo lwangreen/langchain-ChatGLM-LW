@@ -55,6 +55,8 @@ def get_answer(query, vs_path, history, mode, score_threshold=VECTOR_SEARCH_SCOR
 
 
 def init_model():
+    parser.add_argument("--model_name", type=str, default="chatglm2-6b",
+                        help="the name of the llm model")
     args = parser.parse_args()
     args_dict = vars(args)
     try:
