@@ -159,6 +159,7 @@ class ChatModel:
             print("Elasticsearch connection failed.")
 
         self.es_top_k = es_top_k
+        self.history_len = history_len
 
         shared.loaderCheckPoint = LoaderCheckPoint(args_dict)
         llm_model_ins = shared.loaderLLM(**loader_llm_args if loader_llm_args else {})
@@ -284,23 +285,25 @@ class ChatModel:
         vector_store.score_threshold = self.score_threshold
 
         related_docs_with_score, _ = vector_store.similarity_search_with_score(query, k=self.top_k, match_docs = [])
-        related_docs_es = self.es.search(query, top_k=self.es_top_k)
+        
+        chat_history_query = [h[0] for h in chat_history if h[0] is not None]
+        history_query, modified_query = "", query
+        if related_docs_with_score[0].metadata['score'] >= MULTI_DIALOGUE_THRESHOLD:
+            for history_query_ in chat_history_query[::-1]: # 依次加入历史
+                related_docs_with_score, _ = vector_store.similarity_search_with_score(history_query_+' '+query, k=self.top_k, match_docs = [])
+                if related_docs_with_score[0].metadata['score'] < MULTI_DIALOGUE_THRESHOLD:
+                    print("find suitable history: {}".format(history_query))
+                    modified_query = history_query_ + ' ' + query
+                    break
+        
+        related_docs_es = self.es.search(modified_query, top_k=self.es_top_k)
         related_docs_with_score.extend(related_docs_es)
         print("es search result: ", related_docs_es)
 
         if self.enable_rerank:
             related_docs_with_score = self.rerank_docs(query, related_docs_with_score)
 
-        history_query = ""
-        # if related_docs_with_score[0].metadata['score'] >= MULTI_DIALOGUE_THRESHOLD:
-        #     print("Multi Diag Mode")
-        #     for history in chat_history[::-1]: # 依次加入历史
-        #         history_query = history[0]
-        #         related_docs_with_score, _ = vector_store.similarity_search_with_score(history_query+' '+query, k=self.top_k, match_docs = [])
-        #         if related_docs_with_score[0].metadata['score'] < MULTI_DIALOGUE_THRESHOLD:
-        #             print("Find suitable history: {}".format(history_query))
-        #             break
-        # torch_gc()
+        torch_gc()
 
         if len(related_docs_with_score) > 0:
             if len(history_query):

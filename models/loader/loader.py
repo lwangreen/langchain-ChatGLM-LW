@@ -136,6 +136,7 @@ class LoaderCheckPoint:
                     )
                 # 支持自定义cuda设备
                 elif ":" in self.llm_device:
+                    print(f"Loading model on {self.llm_device}...")
                     model = LoaderClass.from_pretrained(checkpoint,
                                                         config=self.model_config,
                                                         torch_dtype=torch.bfloat16 if self.bf16 else torch.float16,
@@ -150,12 +151,15 @@ class LoaderCheckPoint:
                     # 可传入device_map自定义每张卡的部署情况
                     if self.device_map is None:
                         if 'chatglm' in self.model_name.lower() and not "chatglm2" in self.model_name.lower():
+                            print(f"Loading model on {num_gpus} GPUs with chatglm device map ...")
                             self.device_map = self.chatglm_auto_configure_device_map(num_gpus)
                         elif 'moss' in self.model_name.lower():
+                            print(f"Loading model on {num_gpus} GPUs with moss device map ...")
                             self.device_map = self.moss_auto_configure_device_map(num_gpus, checkpoint)
                         else:
                             # 基于如下方式作为默认的多卡加载方案针对新模型基本不会失败
                             # 在chatglm2-6b,bloom-3b,blooz-7b1上进行了测试，GPU负载也相对均衡
+                            print(f"Loading model on {num_gpus} GPUs with default device map ...")
                             from accelerate.utils import get_balanced_memory
                             max_memory = get_balanced_memory(model,
                                                              dtype=torch.int8 if self.load_in_8bit else None,
